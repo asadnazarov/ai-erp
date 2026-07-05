@@ -126,14 +126,14 @@ export function DynamicIsland() {
                       animate={{ opacity: 1, x: 0, scale: 1 }}
                       exit={{ opacity: 0, x: -8, scale: 0.7 }}
                       transition={{ ...SPRING, delay: idx * 0.02 }}
-                      title={item.label}
                       onClick={(e) => {
                         e.stopPropagation()
                         handleSelect(item.path)
                       }}
-                      className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--color-island-ink)]/75 transition-colors hover:bg-[var(--color-island-ink)]/10 hover:text-[var(--color-island-ink)]"
+                      className="flex shrink-0 cursor-pointer flex-col items-center gap-1 rounded-2xl px-2.5 py-1.5 text-[var(--color-island-ink)]/75 transition-colors hover:bg-[var(--color-island-ink)]/10 hover:text-[var(--color-island-ink)]"
                     >
-                      <Icon size={14} strokeWidth={2.2} />
+                      <Icon size={19} strokeWidth={2} />
+                      <span className="whitespace-nowrap text-[10.5px] font-medium leading-none">{item.label}</span>
                     </motion.button>
                   )
                 })}
