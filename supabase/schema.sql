@@ -7,7 +7,7 @@ create extension if not exists "pgcrypto";
 -- 1. XODIMLAR / PROFILES (org structure)
 -- =========================================================
 create table if not exists profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
   full_name text not null,
   email text,
   position text,          -- lavozim
@@ -204,7 +204,10 @@ create table if not exists demo_requests (
 );
 
 -- =========================================================
--- RLS — internal tool: any authenticated teammate has full access
+-- RLS — no login screen: app uses the anon key directly, so every
+-- policy grants access to the "public" role (anyone with the anon key).
+-- NOTE: this means anyone with the site link has full read/write/delete
+-- access to all data below. Intentional per product decision.
 -- =========================================================
 do $$
 declare
@@ -217,15 +220,12 @@ begin
   loop
     execute format('alter table %I enable row level security;', t);
     execute format('drop policy if exists "authenticated_all" on %I;', t);
+    execute format('drop policy if exists "public_all" on %I;', t);
     execute format(
-      'create policy "authenticated_all" on %I for all to authenticated using (true) with check (true);', t
+      'create policy "public_all" on %I for all to public using (true) with check (true);', t
     );
   end loop;
 end $$;
-
--- allow a new user to insert their own profile row on first login
-drop policy if exists "insert_own_profile" on profiles;
-create policy "insert_own_profile" on profiles for insert to authenticated with check (id = auth.uid());
 
 -- =========================================================
 -- STORAGE — attachments bucket (contracts, receipts, TZ files, avatars)
@@ -238,10 +238,10 @@ drop policy if exists "attachments_read" on storage.objects;
 create policy "attachments_read" on storage.objects for select to public using (bucket_id = 'attachments');
 
 drop policy if exists "attachments_write" on storage.objects;
-create policy "attachments_write" on storage.objects for insert to authenticated with check (bucket_id = 'attachments');
+create policy "attachments_write" on storage.objects for insert to public with check (bucket_id = 'attachments');
 
 drop policy if exists "attachments_update" on storage.objects;
-create policy "attachments_update" on storage.objects for update to authenticated using (bucket_id = 'attachments');
+create policy "attachments_update" on storage.objects for update to public using (bucket_id = 'attachments');
 
 drop policy if exists "attachments_delete" on storage.objects;
-create policy "attachments_delete" on storage.objects for delete to authenticated using (bucket_id = 'attachments');
+create policy "attachments_delete" on storage.objects for delete to public using (bucket_id = 'attachments');
