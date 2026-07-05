@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge"
 import { Dialog } from "@/components/ui/Dialog"
 import { Input, Label, Select, Textarea } from "@/components/ui/Input"
 import { Avatar } from "@/components/ui/Avatar"
+import { Comments } from "@/components/ui/Comments"
 import { Plus, Star } from "lucide-react"
 
 const LOYALTY_TONE: Record<string, "success" | "neutral" | "danger"> = {
@@ -114,6 +115,7 @@ export default function Clients() {
               <div><span className="font-medium">Pul imkoniyati: </span>{selected.budget_level}</div>
             )}
             <div><span className="font-medium">Holati: </span>{LOYALTY_LABEL[selected.loyalty_status]}</div>
+            <Comments entityType="client" entityId={selected.id} />
           </div>
         )}
       </Dialog>

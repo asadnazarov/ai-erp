@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronDown } from "lucide-react"
 import { navItems } from "./navItems"
-import { cn } from "@/lib/utils"
 
 const SPRING = { type: "spring", stiffness: 460, damping: 36, mass: 0.8 } as const
 
@@ -67,10 +66,7 @@ export function DynamicIsland() {
           y: scrolled && !open ? -2 : 0,
         }}
         transition={SPRING}
-        className={cn(
-          "pointer-events-auto relative flex max-w-[92vw] cursor-pointer items-center overflow-hidden rounded-full bg-[var(--color-island)] shadow-[var(--shadow-island)] backdrop-blur-xl",
-          scrolled && !open ? "backdrop-saturate-150" : ""
-        )}
+        className="pointer-events-auto relative flex max-w-[92vw] cursor-pointer items-center overflow-hidden rounded-full bg-[var(--color-island)] shadow-[var(--shadow-island)]"
       >
         <AnimatePresence>
           {pulseKey > 0 && (
@@ -86,12 +82,9 @@ export function DynamicIsland() {
         </AnimatePresence>
 
         <motion.div layout className="flex items-center gap-2 overflow-x-auto px-3.5 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <motion.div
-            layout
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]"
-          >
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]">
             <ActiveIcon size={13} className="text-white" strokeWidth={2.2} />
-          </motion.div>
+          </div>
 
           <AnimatePresence mode="popLayout">
             <motion.span
@@ -142,7 +135,6 @@ export function DynamicIsland() {
           </AnimatePresence>
 
           <motion.div
-            layout
             animate={{ rotate: open ? 180 : 0 }}
             transition={SPRING}
             className="ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-[var(--color-island-ink)]/50"

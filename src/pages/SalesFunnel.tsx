@@ -5,8 +5,9 @@ import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Dialog } from "@/components/ui/Dialog"
 import { Input, Label, Textarea } from "@/components/ui/Input"
+import { Comments } from "@/components/ui/Comments"
 import { formatMoney } from "@/lib/utils"
-import { Plus, ChevronRight, Sheet } from "lucide-react"
+import { Plus, ChevronRight, Sheet, Trash2 } from "lucide-react"
 
 const STAGES = [
   { key: "yangi", label: "Yangi" },
@@ -29,6 +30,7 @@ type Lead = {
 export default function SalesFunnel() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<Lead | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetUrl, setSheetUrl] = useState("")
   const [form, setForm] = useState({ client_name: "", company: "", amount: "", project_type: "" })
@@ -41,17 +43,40 @@ export default function SalesFunnel() {
     load()
   }, [])
 
-  async function addLead(e: React.FormEvent) {
+  function openNew() {
+    setEditing(null)
+    setForm({ client_name: "", company: "", amount: "", project_type: "" })
+    setOpen(true)
+  }
+  function openEdit(lead: Lead) {
+    setEditing(lead)
+    setForm({
+      client_name: lead.client_name, company: lead.company ?? "",
+      amount: lead.amount != null ? String(lead.amount) : "", project_type: lead.project_type ?? "",
+    })
+    setOpen(true)
+  }
+
+  async function save(e: React.FormEvent) {
     e.preventDefault()
-    await supabase.from("leads").insert({
+    const payload = {
       client_name: form.client_name,
       company: form.company || null,
       amount: form.amount ? Number(form.amount) : null,
       project_type: form.project_type || null,
-      stage: "yangi",
-    })
-    setForm({ client_name: "", company: "", amount: "", project_type: "" })
+    }
+    if (editing) {
+      await supabase.from("leads").update(payload).eq("id", editing.id)
+    } else {
+      await supabase.from("leads").insert({ ...payload, stage: "yangi" })
+    }
     setOpen(false)
+    load()
+  }
+
+  async function remove(lead: Lead) {
+    if (!confirm(`"${lead.client_name}" lidini o‘chirishni tasdiqlaysizmi?`)) return
+    await supabase.from("leads").delete().eq("id", lead.id)
     load()
   }
 
@@ -99,7 +124,7 @@ export default function SalesFunnel() {
           <Button variant="outline" onClick={() => setSheetOpen(true)}>
             <Sheet size={15} /> Sheets’dan import
           </Button>
-          <Button variant="accent" onClick={() => setOpen(true)}>
+          <Button variant="accent" onClick={openNew}>
             <Plus size={15} /> Yangi lid
           </Button>
         </div>
@@ -125,22 +150,30 @@ export default function SalesFunnel() {
                       exit={{ opacity: 0, scale: 0.94 }}
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     >
-                      <Card className="p-3.5">
-                        <div className="text-sm font-medium">{lead.client_name}</div>
+                      <Card className="cursor-pointer p-3.5" onClick={() => openEdit(lead)}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-sm font-medium">{lead.client_name}</div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); remove(lead) }}
+                            className="cursor-pointer rounded p-1 text-[var(--color-ink-faint)] hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                         {lead.company && <div className="text-xs text-[var(--color-ink-soft)]">{lead.company}</div>}
                         {lead.amount != null && (
                           <div className="mt-1.5 text-xs font-medium text-[var(--color-accent)]">{formatMoney(lead.amount)}</div>
                         )}
                         <div className="mt-2.5 flex items-center justify-between">
                           <button
-                            onClick={() => moveStage(lead, -1)}
+                            onClick={(e) => { e.stopPropagation(); moveStage(lead, -1) }}
                             className="cursor-pointer rounded-md p-1 text-[var(--color-ink-faint)] hover:bg-[var(--color-surface-2)] disabled:opacity-20"
                             disabled={stage.key === STAGES[0].key}
                           >
                             <ChevronRight size={13} className="rotate-180" />
                           </button>
                           <button
-                            onClick={() => moveStage(lead, 1)}
+                            onClick={(e) => { e.stopPropagation(); moveStage(lead, 1) }}
                             className="cursor-pointer rounded-md p-1 text-[var(--color-ink-faint)] hover:bg-[var(--color-surface-2)] disabled:opacity-20"
                             disabled={stage.key === STAGES[STAGES.length - 1].key}
                           >
@@ -157,8 +190,8 @@ export default function SalesFunnel() {
         })}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen} title="Yangi lid qo‘shish">
-        <form onSubmit={addLead} className="space-y-3">
+      <Dialog open={open} onOpenChange={setOpen} title={editing ? "Lidni tahrirlash" : "Yangi lid qo‘shish"}>
+        <form onSubmit={save} className="space-y-3">
           <div>
             <Label>Mijoz ismi</Label>
             <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} required />
@@ -177,8 +210,9 @@ export default function SalesFunnel() {
               <Input value={form.project_type} onChange={(e) => setForm({ ...form, project_type: e.target.value })} />
             </div>
           </div>
-          <Button type="submit" variant="accent" className="w-full">Qo‘shish</Button>
+          <Button type="submit" variant="accent" className="w-full">{editing ? "Saqlash" : "Qo‘shish"}</Button>
         </form>
+        {editing && <Comments entityType="lead" entityId={editing.id} />}
       </Dialog>
 
       <Dialog open={sheetOpen} onOpenChange={setSheetOpen} title="Google Sheets’dan lidlarni import qilish">
