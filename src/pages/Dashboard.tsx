@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
+import { Card, CardContent } from "@/components/ui/Card"
 import { formatMoney } from "@/lib/utils"
 import { Columns3, FolderKanban, Wallet, Contact } from "lucide-react"
 
@@ -40,11 +40,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <motion.div {...fade} transition={{ duration: 0.4 }}>
-        <h1 className="text-2xl font-semibold tracking-tight">Xush kelibsiz 👋</h1>
-        <p className="mt-1 text-sm text-[var(--color-ink-soft)]">Agentlik faoliyatining umumiy ko‘rinishi</p>
-      </motion.div>
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c, i) => (
           <motion.div key={c.label} {...fade} transition={{ duration: 0.4, delay: i * 0.05 }}>
@@ -60,17 +55,6 @@ export default function Dashboard() {
           </motion.div>
         ))}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Tezkor boshlash</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm text-[var(--color-ink-soft)]">
-          <p>Yuqoridagi Dynamic Island orqali bo‘limlar orasida o‘ting — bosganda animatsiya bilan almashadi.</p>
-          <p>Barcha ma’lumotlar real vaqtda Supabase bazasida saqlanadi.</p>
-          <p>Google Sheets’dan lidlarni Sotuv voronkasi bo‘limidan import qiling.</p>
-        </CardContent>
-      </Card>
     </div>
   )
 }
