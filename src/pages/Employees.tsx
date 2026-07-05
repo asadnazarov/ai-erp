@@ -1,0 +1,123 @@
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabase"
+import { Card, CardContent } from "@/components/ui/Card"
+import { Button } from "@/components/ui/Button"
+import { Dialog } from "@/components/ui/Dialog"
+import { Input, Label, Select } from "@/components/ui/Input"
+import { FileUpload } from "@/components/ui/FileUpload"
+import { Avatar } from "@/components/ui/Avatar"
+import { Plus } from "lucide-react"
+
+type Profile = {
+  id: string
+  full_name: string
+  position: string | null
+  department: string | null
+  manager_id: string | null
+  phone: string | null
+  avatar_url: string | null
+}
+
+function OrgNode({ profile, all, depth }: { profile: Profile; all: Profile[]; depth: number }) {
+  const children = all.filter((p) => p.manager_id === profile.id)
+  return (
+    <div className={depth > 0 ? "ml-6 border-l border-[var(--color-border)] pl-6" : ""}>
+      <div className="mb-3 flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-soft)]">
+        <Avatar name={profile.full_name} src={profile.avatar_url} size={36} />
+        <div>
+          <div className="text-sm font-medium">{profile.full_name}</div>
+          <div className="text-xs text-[var(--color-ink-soft)]">{profile.position || "—"} {profile.department ? `· ${profile.department}` : ""}</div>
+        </div>
+      </div>
+      {children.map((c) => <OrgNode key={c.id} profile={c} all={all} depth={depth + 1} />)}
+    </div>
+  )
+}
+
+export default function Employees() {
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({ full_name: "", position: "", department: "", manager_id: "", phone: "", avatar_url: "" })
+
+  async function load() {
+    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: true })
+    setProfiles((data as Profile[]) ?? [])
+  }
+  useEffect(() => {
+    load()
+  }, [])
+
+  async function addEmployee(e: React.FormEvent) {
+    e.preventDefault()
+    await supabase.from("profiles").insert({
+      id: crypto.randomUUID(),
+      full_name: form.full_name,
+      position: form.position || null,
+      department: form.department || null,
+      manager_id: form.manager_id || null,
+      phone: form.phone || null,
+      avatar_url: form.avatar_url || null,
+    })
+    setForm({ full_name: "", position: "", department: "", manager_id: "", phone: "", avatar_url: "" })
+    setOpen(false)
+    load()
+  }
+
+  const roots = profiles.filter((p) => !p.manager_id)
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Xodimlar</h1>
+          <p className="mt-1 text-sm text-[var(--color-ink-soft)]">ORG struktura, vazifa va vakolatlar</p>
+        </div>
+        <Button variant="accent" onClick={() => setOpen(true)}>
+          <Plus size={15} /> Xodim qo‘shish
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="pt-5">
+          {roots.length === 0 && <p className="text-sm text-[var(--color-ink-faint)]">Xodimlar yo‘q.</p>}
+          {roots.map((r) => <OrgNode key={r.id} profile={r} all={profiles} depth={0} />)}
+        </CardContent>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen} title="Yangi xodim">
+        <form onSubmit={addEmployee} className="space-y-3">
+          <div>
+            <Label>To‘liq ism</Label>
+            <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Lavozim</Label>
+              <Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
+            </div>
+            <div>
+              <Label>Bo‘lim</Label>
+              <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <Label>Rahbari</Label>
+            <Select value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
+              <option value="">Yo‘q (yuqori rahbar)</option>
+              {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label>Telefon</Label>
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </div>
+          <div>
+            <Label>Foto</Label>
+            <FileUpload folder="avatars" value={form.avatar_url} onUploaded={(url) => setForm({ ...form, avatar_url: url })} accept="image/*" label="Foto yuklash" />
+          </div>
+          <Button type="submit" variant="accent" className="w-full">Qo‘shish</Button>
+        </form>
+      </Dialog>
+    </div>
+  )
+}
