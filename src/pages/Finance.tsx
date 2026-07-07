@@ -8,10 +8,10 @@ import { FileUpload } from "@/components/ui/FileUpload"
 import { Progress } from "@/components/ui/Progress"
 import { Badge } from "@/components/ui/Badge"
 import { formatMoney, formatDate } from "@/lib/utils"
-import { Plus, TrendingUp, TrendingDown, Target, CalendarClock, Check } from "lucide-react"
+import { Plus, TrendingUp, TrendingDown, Target, CalendarClock, Check, Pencil } from "lucide-react"
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from "recharts"
 
-type Tx = { id: string; type: "kirim" | "chiqim"; category: string | null; amount: number; occurred_on: string }
+type Tx = { id: string; type: "kirim" | "chiqim"; category: string | null; amount: number; occurred_on: string; receipt_url: string | null; edited_at: string | null }
 type Goal = { id: string; title: string; target_amount: number; period_start: string; period_end: string }
 type PaymentStage = {
   id: string; contract_id: string; title: string; amount: number; due_date: string | null; status: string; paid_at: string | null
@@ -24,6 +24,7 @@ export default function Finance() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [expectedContracts, setExpectedContracts] = useState(0)
   const [open, setOpen] = useState(false)
+  const [editingTx, setEditingTx] = useState<Tx | null>(null)
   const [goalOpen, setGoalOpen] = useState(false)
   const [stageOpen, setStageOpen] = useState(false)
   const [form, setForm] = useState({ type: "kirim", category: "", amount: "", occurred_on: "", receipt_url: "" })
@@ -64,16 +65,33 @@ export default function Finance() {
     return Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month))
   }, [txs])
 
+  function openNewTx() {
+    setEditingTx(null)
+    setForm({ type: "kirim", category: "", amount: "", occurred_on: "", receipt_url: "" })
+    setOpen(true)
+  }
+  function openEditTx(tx: Tx) {
+    setEditingTx(tx)
+    setForm({ type: tx.type, category: tx.category ?? "", amount: String(tx.amount), occurred_on: tx.occurred_on, receipt_url: tx.receipt_url ?? "" })
+    setOpen(true)
+  }
+
   async function addTx(e: React.FormEvent) {
     e.preventDefault()
-    await supabase.from("finance_transactions").insert({
+    const payload = {
       type: form.type,
       category: form.category || null,
       amount: Number(form.amount),
       occurred_on: form.occurred_on || new Date().toISOString().slice(0, 10),
       receipt_url: form.receipt_url || null,
-    })
+    }
+    if (editingTx) {
+      await supabase.from("finance_transactions").update({ ...payload, edited_at: new Date().toISOString() }).eq("id", editingTx.id)
+    } else {
+      await supabase.from("finance_transactions").insert(payload)
+    }
     setForm({ type: "kirim", category: "", amount: "", occurred_on: "", receipt_url: "" })
+    setEditingTx(null)
     setOpen(false)
     load()
   }
@@ -127,7 +145,7 @@ export default function Finance() {
           <Button variant="outline" onClick={() => setGoalOpen(true)}>
             <Target size={15} /> SMART maqsad
           </Button>
-          <Button variant="accent" onClick={() => setOpen(true)}>
+          <Button variant="accent" onClick={openNewTx}>
             <Plus size={15} /> Tranzaksiya
           </Button>
         </div>
@@ -149,7 +167,36 @@ export default function Finance() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Oylik oqim</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Barcha tranzaksiyalar</CardTitle></CardHeader>
+        <CardContent className="space-y-2 pt-0">
+          {txs.map((t) => (
+            <div key={t.id} className="flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--color-border)] px-3 py-2 text-sm">
+              <div className="flex items-center gap-3">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${t.type === "kirim" ? "bg-[var(--color-success-soft)] text-[var(--color-success)]" : "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"}`}>
+                  {t.type === "kirim" ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+                </span>
+                <div>
+                  <div className="font-medium">{t.category || (t.type === "kirim" ? "Kirim" : "Chiqim")}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--color-ink-faint)]">
+                    {formatDate(t.occurred_on)}
+                    {t.edited_at && <Badge tone="neutral">Tahrirlangan</Badge>}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`font-medium ${t.type === "kirim" ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}>{formatMoney(t.amount)}</span>
+                <button onClick={() => openEditTx(t)} className="cursor-pointer rounded p-1 text-[var(--color-ink-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]">
+                  <Pencil size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+          {txs.length === 0 && <p className="text-xs text-[var(--color-ink-faint)]">Hozircha tranzaksiyalar yo‘q.</p>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Oylik oqim (grafik)</CardTitle></CardHeader>
         <CardContent className="h-56 pt-0">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
@@ -229,7 +276,7 @@ export default function Finance() {
         })}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen} title="Yangi tranzaksiya">
+      <Dialog open={open} onOpenChange={setOpen} title={editingTx ? "Tranzaksiyani tahrirlash" : "Yangi tranzaksiya"}>
         <form onSubmit={addTx} className="space-y-3">
           <div>
             <Label>Turi</Label>
@@ -256,7 +303,7 @@ export default function Finance() {
             <Label>Chek / kvitansiya</Label>
             <FileUpload folder="receipts" value={form.receipt_url} onUploaded={(url) => setForm({ ...form, receipt_url: url })} />
           </div>
-          <Button type="submit" variant="accent" className="w-full">Qo‘shish</Button>
+          <Button type="submit" variant="accent" className="w-full">{editingTx ? "Saqlash" : "Qo‘shish"}</Button>
         </form>
       </Dialog>
 

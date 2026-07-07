@@ -12,7 +12,7 @@ import { Dialog } from "@/components/ui/Dialog"
 import { Input, Label, Select } from "@/components/ui/Input"
 import { FileUpload } from "@/components/ui/FileUpload"
 import { Comments } from "@/components/ui/Comments"
-import { renderProposalHtml } from "@/lib/proposalTemplate"
+import { renderProposalHtml, renderSupportHtml } from "@/lib/proposalTemplate"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2, Search, FileText, Paperclip } from "lucide-react"
 
@@ -36,6 +36,8 @@ type Project = {
   employees_count: number | null
   budget: string | null
   tz_file_url: string | null
+  payment_type: string | null
+  installments_count: number | null
 }
 
 type LeadOption = { id: string; client_name: string; phone: string | null; company: string | null; employees_count: number | null; budget: string | null }
@@ -46,7 +48,7 @@ function ProjectCard({ p, onEdit, onDelete }: { p: Project; onEdit: () => void; 
   const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 } : undefined
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-50" : ""}>
-      <Card className="w-64 shrink-0 cursor-grab p-4 active:cursor-grabbing">
+      <Card className="w-full cursor-grab p-4 active:cursor-grabbing">
         <div className="mb-2 flex items-start justify-between gap-2">
           <h3 className="text-sm font-semibold">{p.name}</h3>
           <div className="flex shrink-0 gap-1">
@@ -93,6 +95,7 @@ function Column({ status, label, tone, count, children }: { status: string; labe
 const emptyForm = {
   name: "", start_date: "", end_date: "", status: "jarayonda", progress: "0", description: "",
   lead_id: "", client_contact_name: "", employees_count: "", budget: "", tz_file_url: "",
+  payment_type: "bir_martalik", installments_count: "2",
 }
 
 export default function Projects() {
@@ -105,7 +108,9 @@ export default function Projects() {
   const [attachedLead, setAttachedLead] = useState<LeadOption | null>(null)
   const [kpOpen, setKpOpen] = useState(false)
   const [kpHtml, setKpHtml] = useState<string | null>(null)
-  const [kpForm, setKpForm] = useState({ payment_type: "bir_martalik", installments_count: "2", support_tier: "start", support_months: "1" })
+  const [supportOpen, setSupportOpen] = useState(false)
+  const [supportHtml, setSupportHtml] = useState<string | null>(null)
+  const [supportForm, setSupportForm] = useState({ support_tier: "start", support_months: "1" })
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
   async function load() {
@@ -132,6 +137,8 @@ export default function Projects() {
       lead_id: p.lead_id ?? "", client_contact_name: p.client_contact_name ?? "",
       employees_count: p.employees_count != null ? String(p.employees_count) : "",
       budget: p.budget ?? "", tz_file_url: p.tz_file_url ?? "",
+      payment_type: p.payment_type ?? "bir_martalik",
+      installments_count: p.installments_count != null ? String(p.installments_count) : "2",
     })
     if (p.lead_id) {
       const { data } = await supabase.from("leads").select("id, client_name, phone, company, employees_count, budget").eq("id", p.lead_id).single()
@@ -181,6 +188,8 @@ export default function Projects() {
       employees_count: form.employees_count ? Number(form.employees_count) : null,
       budget: form.budget || null,
       tz_file_url: form.tz_file_url || null,
+      payment_type: form.payment_type || null,
+      installments_count: form.payment_type === "bolib_tolash" ? Number(form.installments_count) : null,
     }
     if (editing) {
       await supabase.from("projects").update(payload).eq("id", editing.id)
@@ -207,8 +216,7 @@ export default function Projects() {
     await supabase.from("projects").update({ status: newStatus }).eq("id", project.id)
   }
 
-  async function generateKp(e: React.FormEvent) {
-    e.preventDefault()
+  async function generateKp() {
     if (!editing) return
     const { data: contract } = await supabase.from("contracts").select("id, amount").eq("project_id", editing.id).limit(1).maybeSingle()
     let stages: PaymentStage[] = []
@@ -221,21 +229,37 @@ export default function Projects() {
       companyName: attachedLead?.company ?? null,
       clientContactName: form.client_contact_name || null,
       amount: contract?.amount ?? null,
-      paymentType: kpForm.payment_type,
-      installmentsCount: kpForm.payment_type === "bolib_tolash" ? Number(kpForm.installments_count) : null,
-      supportTier: kpForm.support_tier,
-      supportMonths: Number(kpForm.support_months),
+      paymentType: form.payment_type || null,
+      installmentsCount: form.payment_type === "bolib_tolash" ? Number(form.installments_count) : null,
       paymentStages: stages,
     })
     await supabase.from("proposals").insert({
       project_id: editing.id,
-      payment_type: kpForm.payment_type,
-      installments_count: kpForm.payment_type === "bolib_tolash" ? Number(kpForm.installments_count) : null,
-      support_tier: kpForm.support_tier,
-      support_months: Number(kpForm.support_months),
+      kind: "kp",
+      payment_type: form.payment_type || null,
+      installments_count: form.payment_type === "bolib_tolash" ? Number(form.installments_count) : null,
       generated_html: html,
     })
     setKpHtml(html)
+  }
+
+  async function generateSupport(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editing) return
+    const html = renderSupportHtml({
+      projectName: form.name,
+      companyName: attachedLead?.company ?? null,
+      supportTier: supportForm.support_tier,
+      supportMonths: Number(supportForm.support_months),
+    })
+    await supabase.from("proposals").insert({
+      project_id: editing.id,
+      kind: "support",
+      support_tier: supportForm.support_tier,
+      support_months: Number(supportForm.support_months),
+      generated_html: html,
+    })
+    setSupportHtml(html)
   }
 
   return (
@@ -315,6 +339,25 @@ export default function Projects() {
             <Input value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           </div>
 
+          <div className="rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-soft)]">To‘lov shartlari</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>To‘lov turi</Label>
+                <Select value={form.payment_type} onChange={(e) => setForm({ ...form, payment_type: e.target.value })}>
+                  <option value="bir_martalik">Bir martalik to‘lov</option>
+                  <option value="bolib_tolash">Bo‘lib to‘lash</option>
+                </Select>
+              </div>
+              {form.payment_type === "bolib_tolash" && (
+                <div>
+                  <Label>Necha qismga bo‘lib</Label>
+                  <Input type="number" min={2} value={form.installments_count} onChange={(e) => setForm({ ...form, installments_count: e.target.value })} />
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Boshlanish</Label>
@@ -354,35 +397,34 @@ export default function Projects() {
         </form>
 
         {editing && (
-          <div className="mt-4 border-t border-[var(--color-border)] pt-4">
-            <Button type="button" variant="outline" className="w-full" onClick={() => { setKpHtml(null); setKpOpen(true) }}>
+          <div className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-4">
+            <Button type="button" variant="outline" className="w-full" onClick={async () => { setKpHtml(null); setKpOpen(true); await generateKp() }}>
               <FileText size={14} /> KP (kommersiya taklifi) yaratish
+            </Button>
+            <Button type="button" variant="outline" className="w-full" onClick={() => { setSupportHtml(null); setSupportOpen(true) }}>
+              <FileText size={14} /> Qo‘llab-quvvatlash hujjatini yaratish
             </Button>
             <Comments entityType="project" entityId={editing.id} />
           </div>
         )}
       </Dialog>
 
-      <Dialog open={kpOpen} onOpenChange={setKpOpen} title="KP yaratish">
-        {!kpHtml ? (
-          <form onSubmit={generateKp} className="space-y-3">
-            <div>
-              <Label>To‘lov turi</Label>
-              <Select value={kpForm.payment_type} onChange={(e) => setKpForm({ ...kpForm, payment_type: e.target.value })}>
-                <option value="bir_martalik">Bir martalik to‘lov</option>
-                <option value="bolib_tolash">Bo‘lib to‘lash</option>
-              </Select>
-            </div>
-            {kpForm.payment_type === "bolib_tolash" && (
-              <div>
-                <Label>Necha qismga bo‘lib</Label>
-                <Input type="number" min={2} value={kpForm.installments_count} onChange={(e) => setKpForm({ ...kpForm, installments_count: e.target.value })} />
-              </div>
-            )}
+      <Dialog open={kpOpen} onOpenChange={setKpOpen} title="KP (kommersiya taklifi)">
+        {kpHtml && (
+          <div className="space-y-3">
+            <div className="max-h-[60vh] overflow-y-auto rounded-[var(--radius-sm)] border border-[var(--color-border)]" dangerouslySetInnerHTML={{ __html: kpHtml }} />
+            <Button variant="outline" className="w-full" onClick={() => window.print()}>Chop etish / PDF saqlash</Button>
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen} title="Qo‘llab-quvvatlash hujjati">
+        {!supportHtml ? (
+          <form onSubmit={generateSupport} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Qo‘llab-quvvatlash tarifi</Label>
-                <Select value={kpForm.support_tier} onChange={(e) => setKpForm({ ...kpForm, support_tier: e.target.value })}>
+                <Label>Tarif</Label>
+                <Select value={supportForm.support_tier} onChange={(e) => setSupportForm({ ...supportForm, support_tier: e.target.value })}>
                   <option value="bepul">Bepul</option>
                   <option value="start">Start</option>
                   <option value="pro">Pro</option>
@@ -391,14 +433,14 @@ export default function Projects() {
               </div>
               <div>
                 <Label>Necha oy</Label>
-                <Input type="number" min={0} value={kpForm.support_months} onChange={(e) => setKpForm({ ...kpForm, support_months: e.target.value })} />
+                <Input type="number" min={0} value={supportForm.support_months} onChange={(e) => setSupportForm({ ...supportForm, support_months: e.target.value })} />
               </div>
             </div>
             <Button type="submit" variant="accent" className="w-full">Yaratish</Button>
           </form>
         ) : (
           <div className="space-y-3">
-            <div className="max-h-[60vh] overflow-y-auto rounded-[var(--radius-sm)] border border-[var(--color-border)]" dangerouslySetInnerHTML={{ __html: kpHtml }} />
+            <div className="max-h-[60vh] overflow-y-auto rounded-[var(--radius-sm)] border border-[var(--color-border)]" dangerouslySetInnerHTML={{ __html: supportHtml }} />
             <Button variant="outline" className="w-full" onClick={() => window.print()}>Chop etish / PDF saqlash</Button>
           </div>
         )}

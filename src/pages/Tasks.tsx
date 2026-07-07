@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/Progress"
 import { Comments } from "@/components/ui/Comments"
 import { Avatar } from "@/components/ui/Avatar"
 import { formatDate } from "@/lib/utils"
-import { Plus, Pencil, Trash2, CalendarClock } from "lucide-react"
+import { Plus, Pencil, Trash2, CalendarClock, X } from "lucide-react"
 
 const QUADRANTS = [
   { id: 1, title: "Shoshilinch va muhim", tone: "border-t-[var(--color-danger)]" },
@@ -102,7 +102,7 @@ export default function Tasks() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
   const [form, setForm] = useState({ title: "", description: "", department: "", deadline: "", eisenhower: "2", assignee_id: "" })
-  const [checklistText, setChecklistText] = useState("")
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
   async function load() {
@@ -120,7 +120,7 @@ export default function Tasks() {
   function openNew() {
     setEditing(null)
     setForm({ title: "", description: "", department: "", deadline: "", eisenhower: "2", assignee_id: "" })
-    setChecklistText("")
+    setChecklistItems([])
     setOpen(true)
   }
   function openEdit(t: Task) {
@@ -129,20 +129,23 @@ export default function Tasks() {
       title: t.title, description: t.description ?? "", department: t.department ?? "", deadline: t.deadline ?? "",
       eisenhower: String(t.eisenhower), assignee_id: t.assignee_id ?? "",
     })
-    setChecklistText((t.checklist ?? []).map((c) => c.text).join("\n"))
+    setChecklistItems(t.checklist ?? [])
     setOpen(true)
+  }
+
+  function addChecklistRow() {
+    setChecklistItems((items) => [...items, { text: "", done: false }])
+  }
+  function updateChecklistRow(idx: number, text: string) {
+    setChecklistItems((items) => items.map((it, i) => (i === idx ? { ...it, text } : it)))
+  }
+  function removeChecklistRow(idx: number) {
+    setChecklistItems((items) => items.filter((_, i) => i !== idx))
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
-    const checklist: ChecklistItem[] = checklistText
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((text) => {
-        const existing = editing?.checklist?.find((c) => c.text === text)
-        return { text, done: existing?.done ?? false }
-      })
+    const checklist: ChecklistItem[] = checklistItems.filter((c) => c.text.trim())
     const progress = checklist.length ? Math.round((checklist.filter((c) => c.done).length / checklist.length) * 100) : (editing?.progress ?? 0)
     const payload = {
       title: form.title,
@@ -254,8 +257,33 @@ export default function Tasks() {
             </div>
           </div>
           <div>
-            <Label>Check-list (har bir band yangi qatorda)</Label>
-            <Textarea value={checklistText} onChange={(e) => setChecklistText(e.target.value)} placeholder={"Birinchi qadam\nIkkinchi qadam"} />
+            <Label>Check-list</Label>
+            <div className="space-y-2">
+              {checklistItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    value={item.text}
+                    onChange={(e) => updateChecklistRow(idx, e.target.value)}
+                    placeholder={`Qadam ${idx + 1}`}
+                    autoFocus={idx === checklistItems.length - 1}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeChecklistRow(idx)}
+                    className="cursor-pointer rounded p-1.5 text-[var(--color-ink-faint)] hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addChecklistRow}
+                className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[var(--color-accent)] hover:underline"
+              >
+                <Plus size={13} /> Band qo‘shish
+              </button>
+            </div>
           </div>
           <Button type="submit" variant="accent" className="w-full">{editing ? "Saqlash" : "Qo‘shish"}</Button>
         </form>
