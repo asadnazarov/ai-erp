@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronDown } from "lucide-react"
@@ -14,9 +14,9 @@ export function DynamicIsland() {
   const [pulseKey, setPulseKey] = useState(0)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const active = navItems.find((i) => i.path === pathname) ?? navItems[0]
+  const active = useMemo(() => navItems.find((i) => i.path === pathname) ?? navItems[0], [pathname])
   const ActiveIcon = active.icon
-  const rest = navItems.filter((i) => i.path !== active.path)
+  const rest = useMemo(() => navItems.filter((i) => i.path !== active.path), [active])
 
   useEffect(() => {
     let raf = 0
@@ -66,7 +66,7 @@ export function DynamicIsland() {
           y: scrolled && !open ? -2 : 0,
         }}
         transition={SPRING}
-        className="pointer-events-auto relative flex max-w-[92vw] cursor-pointer items-center overflow-hidden rounded-full bg-[var(--color-island)] shadow-[var(--shadow-island)]"
+        className="pointer-events-auto relative flex max-w-[92vw] cursor-pointer items-center overflow-hidden rounded-full bg-[var(--color-island)] shadow-[var(--shadow-island)] [contain:layout_paint] [will-change:width]"
       >
         <AnimatePresence>
           {pulseKey > 0 && (
@@ -81,12 +81,12 @@ export function DynamicIsland() {
           )}
         </AnimatePresence>
 
-        <motion.div layout className="flex items-center gap-2 overflow-x-auto px-3.5 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-2 overflow-x-auto px-3.5 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]">
             <ActiveIcon size={13} className="text-white" strokeWidth={2.2} />
           </div>
 
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="wait">
             <motion.span
               key={active.path}
               initial={{ opacity: 0, x: 6, filter: "blur(3px)" }}
@@ -141,7 +141,7 @@ export function DynamicIsland() {
           >
             <ChevronDown size={13} />
           </motion.div>
-        </motion.div>
+        </div>
       </motion.div>
     </div>
   )

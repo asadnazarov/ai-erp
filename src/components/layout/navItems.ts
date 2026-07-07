@@ -9,11 +9,12 @@ import {
   Users,
   Contact,
   ClipboardList,
+  ImageIcon,
 } from "lucide-react"
 
 export const navItems = [
   { path: "/", label: "Bosh sahifa", icon: LayoutDashboard },
-  { path: "/sotuv", label: "Sotuv voronkasi", icon: Columns3 },
+  { path: "/sotuv", label: "CRM", icon: Columns3 },
   { path: "/loyihalar", label: "Loyihalar", icon: FolderKanban },
   { path: "/vazifalar", label: "Vazifalar", icon: ListChecks },
   { path: "/xujjatlar", label: "Xujjatlar", icon: FileText },
@@ -22,4 +23,5 @@ export const navItems = [
   { path: "/xodimlar", label: "Xodimlar", icon: Users },
   { path: "/mijozlar", label: "Mijozlar bazasi", icon: Contact },
   { path: "/demo", label: "TZ / Demo", icon: ClipboardList },
+  { path: "/rasm", label: "Rasm generatsiya", icon: ImageIcon },
 ] as const
