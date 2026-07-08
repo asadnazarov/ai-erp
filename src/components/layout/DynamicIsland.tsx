@@ -1,22 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, LogOut } from "lucide-react"
 import { navItems } from "./navItems"
+import { useAuth } from "@/lib/auth"
 
 const SPRING = { type: "spring", stiffness: 460, damping: 36, mass: 0.8 } as const
 
 export function DynamicIsland() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const { role, signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [pulseKey, setPulseKey] = useState(0)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const active = useMemo(() => navItems.find((i) => i.path === pathname) ?? navItems[0], [pathname])
+  const visibleItems = useMemo(
+    () => (role === "full" ? navItems : navItems.filter((i) => i.path === "/sotuv")),
+    [role]
+  )
+  const active = useMemo(() => visibleItems.find((i) => i.path === pathname) ?? visibleItems[0], [pathname, visibleItems])
   const ActiveIcon = active.icon
-  const rest = useMemo(() => navItems.filter((i) => i.path !== active.path), [active])
+  const rest = useMemo(() => visibleItems.filter((i) => i.path !== active.path), [active, visibleItems])
 
   useEffect(() => {
     let raf = 0
@@ -130,6 +136,19 @@ export function DynamicIsland() {
                     </motion.button>
                   )
                 })}
+                <motion.button
+                  key="signout"
+                  initial={{ opacity: 0, x: -8, scale: 0.7 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -8, scale: 0.7 }}
+                  transition={{ ...SPRING, delay: rest.length * 0.02 }}
+                  onClick={(e) => { e.stopPropagation(); signOut() }}
+                  title="Chiqish"
+                  className="flex shrink-0 cursor-pointer flex-col items-center gap-1 rounded-2xl px-2.5 py-1.5 text-[var(--color-danger)]/80 transition-colors hover:bg-[var(--color-danger-soft)]"
+                >
+                  <LogOut size={19} strokeWidth={2} />
+                  <span className="whitespace-nowrap text-[10.5px] font-medium leading-none">Chiqish</span>
+                </motion.button>
               </>
             )}
           </AnimatePresence>

@@ -16,20 +16,32 @@ type Profile = {
   manager_id: string | null
   phone: string | null
   avatar_url: string | null
+  role: string | null
 }
 
-function OrgNode({ profile, all, depth }: { profile: Profile; all: Profile[]; depth: number }) {
+const ROLE_LABEL: Record<string, string> = { full: "To‘liq huquq", crm: "Faqat CRM", pending: "Kutilmoqda" }
+
+function OrgNode({ profile, all, depth, onRoleChange }: { profile: Profile; all: Profile[]; depth: number; onRoleChange: (id: string, role: string) => void }) {
   const children = all.filter((p) => p.manager_id === profile.id)
   return (
     <div className={depth > 0 ? "ml-6 border-l border-[var(--color-border)] pl-6" : ""}>
-      <div className="mb-3 flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-soft)]">
-        <Avatar name={profile.full_name} src={profile.avatar_url} size={36} />
-        <div>
-          <div className="text-sm font-medium">{profile.full_name}</div>
-          <div className="text-xs text-[var(--color-ink-soft)]">{profile.position || "—"} {profile.department ? `· ${profile.department}` : ""}</div>
+      <div className="mb-3 flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-soft)]">
+        <div className="flex items-center gap-3">
+          <Avatar name={profile.full_name} src={profile.avatar_url} size={36} />
+          <div>
+            <div className="text-sm font-medium">{profile.full_name}</div>
+            <div className="text-xs text-[var(--color-ink-soft)]">{profile.position || "—"} {profile.department ? `· ${profile.department}` : ""}</div>
+          </div>
         </div>
+        <select
+          value={profile.role ?? "pending"}
+          onChange={(e) => onRoleChange(profile.id, e.target.value)}
+          className="h-8 shrink-0 rounded-[var(--radius-xs)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-[var(--color-accent)]"
+        >
+          {Object.entries(ROLE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
       </div>
-      {children.map((c) => <OrgNode key={c.id} profile={c} all={all} depth={depth + 1} />)}
+      {children.map((c) => <OrgNode key={c.id} profile={c} all={all} depth={depth + 1} onRoleChange={onRoleChange} />)}
     </div>
   )
 }
@@ -63,6 +75,15 @@ export default function Employees() {
     load()
   }
 
+  async function updateRole(id: string, role: string) {
+    setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, role } : p)))
+    const { error } = await supabase.from("profiles").update({ role }).eq("id", id)
+    if (error) {
+      alert("Rolni o‘zgartirib bo‘lmadi: " + error.message)
+      load()
+    }
+  }
+
   const roots = profiles.filter((p) => !p.manager_id)
 
   return (
@@ -80,7 +101,7 @@ export default function Employees() {
       <Card>
         <CardContent className="pt-5">
           {roots.length === 0 && <p className="text-sm text-[var(--color-ink-faint)]">Xodimlar yo‘q.</p>}
-          {roots.map((r) => <OrgNode key={r.id} profile={r} all={profiles} depth={0} />)}
+          {roots.map((r) => <OrgNode key={r.id} profile={r} all={profiles} depth={0} onRoleChange={updateRole} />)}
         </CardContent>
       </Card>
 
