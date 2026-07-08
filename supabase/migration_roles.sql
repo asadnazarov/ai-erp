@@ -57,10 +57,12 @@ begin
     'payment_stages','proposals','generated_images'
   ])
   loop
-    execute format('drop policy if exists "public_all" on %I;', t);
-    execute format(
-      'create policy "full_role_all" on %I for all to authenticated using (is_full_role()) with check (is_full_role());', t
-    );
+    if to_regclass('public.' || t) is not null then
+      execute format('drop policy if exists "public_all" on %I;', t);
+      execute format(
+        'create policy "full_role_all" on %I for all to authenticated using (is_full_role()) with check (is_full_role());', t
+      );
+    end if;
   end loop;
 end $$;
 
